@@ -7,6 +7,8 @@
     <title>Daily Timesheet</title>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SweetAlert2 CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <style>
         * {
             margin: 0;
@@ -415,10 +417,10 @@
                                 <button class="btn btn-yellow" onclick="openEditModal({{ $timesheet->id }}, '{{ $timesheet->date->format('Y-m-d') }}', '{{ $timesheet->time_in }}', '{{ $timesheet->time_out }}')">
                                     <i class="fa-solid fa-pen-to-square"></i> Edit
                                 </button>
-                                <form action="{{ route('timesheets.destroy', $timesheet) }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this entry?')">
+                                <form id="delete-form-{{ $timesheet->id }}" action="{{ route('timesheets.destroy', $timesheet) }}" method="POST" style="display: inline;">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit" class="btn btn-red">
+                                    <button type="button" onclick="confirmDelete({{ $timesheet->id }}, '{{ $timesheet->date->format('M d, Y') }}')" class="btn btn-red">
                                         <i class="fa-solid fa-trash"></i> Delete
                                     </button>
                                 </form>
@@ -497,6 +499,9 @@
         </div>
     </div>
 
+    <!-- SweetAlert2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
     <script>
         function openAddModal() {
             document.getElementById('addModal').classList.add('active');
@@ -516,6 +521,30 @@
 
         function closeEditModal() {
             document.getElementById('editModal').classList.remove('active');
+        }
+
+        // SweetAlert2 Delete Confirmation
+        function confirmDelete(id, date) {
+            Swal.fire({
+                title: 'Delete Entry?',
+                html: `Are you sure you want to delete the timesheet entry for <strong>${date}</strong>?<br><br>This action cannot be undone.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: '<i class="fa-solid fa-trash"></i> Yes, delete it!',
+                cancelButtonText: '<i class="fa-solid fa-xmark"></i> Cancel',
+                reverseButtons: true,
+                customClass: {
+                    confirmButton: 'btn',
+                    cancelButton: 'btn'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Submit the form
+                    document.getElementById('delete-form-' + id).submit();
+                }
+            });
         }
 
         // Close modal when clicking outside
