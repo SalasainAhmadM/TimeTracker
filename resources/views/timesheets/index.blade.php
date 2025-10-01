@@ -22,7 +22,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             background: white;
             border-radius: 0.5rem;
@@ -109,6 +109,61 @@
             background: #d1fae5;
             border-color: #6ee7b7;
             color: #065f46;
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .summary-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .summary-card.total {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        }
+
+        .summary-card.overtime {
+            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+        }
+
+        .summary-card.undertime {
+            background: linear-gradient(135deg, #ef4444 0%, #991b1b 100%);
+        }
+
+        .summary-card.net {
+            background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+        }
+
+        .summary-card.net.negative {
+            background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%);
+        }
+
+        .summary-card-label {
+            font-size: 0.875rem;
+            opacity: 0.9;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .summary-card-value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        .summary-card-subtitle {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            margin-top: 0.5rem;
         }
 
         table {
@@ -210,6 +265,42 @@
             font-weight: 500;
             color: #374151;
         }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-overtime {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-undertime {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-on-time {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .variance {
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .variance-positive {
+            color: #2563eb;
+        }
+
+        .variance-negative {
+            color: #dc2626;
+        }
     </style>
 </head>
 <body>
@@ -233,7 +324,52 @@
         @endif
 
         <div class="alert">
-            <i class="fa-solid fa-info-circle"></i> <strong>Note:</strong> Lunch break (12:00 PM - 1:00 PM) is automatically excluded from calculations
+            <i class="fa-solid fa-info-circle"></i> <strong>Note:</strong> Lunch break (12:00 PM - 1:00 PM) is automatically excluded from calculations. Standard work hours: 8 hours/day
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+            <div class="summary-card total">
+                <div class="summary-card-label">
+                    <i class="fa-solid fa-clock"></i> Total Hours Worked
+                </div>
+                <div class="summary-card-value">{{ number_format($totalHours, 2) }}</div>
+                <div class="summary-card-subtitle">Expected: {{ number_format($expectedHours, 2) }} hrs</div>
+            </div>
+
+            <div class="summary-card overtime">
+                <div class="summary-card-label">
+                    <i class="fa-solid fa-arrow-up"></i> Total Overtime
+                </div>
+                <div class="summary-card-value">+{{ number_format($totalOvertime, 2) }}</div>
+                <div class="summary-card-subtitle">Extra hours rendered</div>
+            </div>
+
+            <div class="summary-card undertime">
+                <div class="summary-card-label">
+                    <i class="fa-solid fa-arrow-down"></i> Total Undertime
+                </div>
+                <div class="summary-card-value">-{{ number_format($totalUndertime, 2) }}</div>
+                <div class="summary-card-subtitle">Hours short</div>
+            </div>
+
+            <div class="summary-card net {{ $netVariance >= 0 ? '' : 'negative' }}">
+                <div class="summary-card-label">
+                    <i class="fa-solid fa-scale-balanced"></i> Net Balance
+                </div>
+                <div class="summary-card-value">
+                    {{ $netVariance >= 0 ? '+' : '' }}{{ number_format($netVariance, 2) }}
+                </div>
+                <div class="summary-card-subtitle">
+                    @if($netVariance > 0)
+                        <i class="fa-solid fa-check-circle"></i> You've rendered {{ number_format($netVariance, 2) }} extra hours!
+                    @elseif($netVariance < 0)
+                        <i class="fa-solid fa-exclamation-triangle"></i> You need {{ number_format(abs($netVariance), 2) }} more hours
+                    @else
+                        <i class="fa-solid fa-check-circle"></i> Perfect! On-time
+                    @endif
+                </div>
+            </div>
         </div>
 
         <div style="overflow-x: auto;">
@@ -244,6 +380,7 @@
                         <th><i class="fa-solid fa-arrow-right-to-bracket"></i> Time In</th>
                         <th><i class="fa-solid fa-arrow-right-from-bracket"></i> Time Out</th>
                         <th><i class="fa-solid fa-hourglass-half"></i> Hours Worked</th>
+                        <th><i class="fa-solid fa-chart-line"></i> Status</th>
                         <th style="text-align: center;"><i class="fa-solid fa-gears"></i> Actions</th>
                     </tr>
                 </thead>
@@ -251,9 +388,29 @@
                     @forelse($timesheets as $timesheet)
                         <tr>
                             <td>{{ $timesheet->date->format('M d, Y') }}</td>
-                            <td>{{ \Carbon\Carbon::parse($timesheet->time_in)->format('h:i A') }}</td>
-                            <td>{{ \Carbon\Carbon::parse($timesheet->time_out)->format('h:i A') }}</td>
+                            <td>{{ \Carbon\Carbon::parse($timesheet->time_in)->format('h:i:s A') }}</td>
+                            <td>{{ \Carbon\Carbon::parse($timesheet->time_out)->format('h:i:s A') }}</td>
                             <td class="hours-display">{{ $timesheet->hours_worked }} hrs</td>
+                            <td>
+                                <span class="status-badge status-{{ $timesheet->status }}">
+                                    @if($timesheet->status == 'overtime')
+                                        <i class="fa-solid fa-arrow-up"></i> OVERTIME
+                                    @elseif($timesheet->status == 'undertime')
+                                        <i class="fa-solid fa-arrow-down"></i> UNDERTIME
+                                    @else
+                                        <i class="fa-solid fa-check"></i> ON-TIME
+                                    @endif
+                                </span>
+                                @if($timesheet->variance_hours != 0)
+                                    <div class="variance {{ $timesheet->variance_hours > 0 ? 'variance-positive' : 'variance-negative' }}">
+                                        @if($timesheet->variance_hours > 0)
+                                            +{{ $timesheet->variance_hours }} hrs excess
+                                        @else
+                                            {{ $timesheet->variance_hours }} hrs ({{ abs($timesheet->variance_hours) }} hrs needed)
+                                        @endif
+                                    </div>
+                                @endif
+                            </td>
                             <td class="actions">
                                 <button class="btn btn-yellow" onclick="openEditModal({{ $timesheet->id }}, '{{ $timesheet->date->format('Y-m-d') }}', '{{ $timesheet->time_in }}', '{{ $timesheet->time_out }}')">
                                     <i class="fa-solid fa-pen-to-square"></i> Edit
@@ -269,19 +426,12 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" style="text-align: center; padding: 2rem; color: #6b7280;">
+                            <td colspan="6" style="text-align: center; padding: 2rem; color: #6b7280;">
                                 <i class="fa-solid fa-inbox"></i> No entries yet. Click "Add New Entry" to get started.
                             </td>
                         </tr>
                     @endforelse
                 </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="3" style="text-align: right;">TOTAL HOURS:</td>
-                        <td class="total-hours">{{ number_format($totalHours, 2) }} hrs</td>
-                        <td></td>
-                    </tr>
-                </tfoot>
             </table>
         </div>
     </div>
@@ -298,11 +448,11 @@
                 </div>
                 <div class="form-group">
                     <label><i class="fa-solid fa-clock"></i> Time In</label>
-                    <input type="time" name="time_in" required value="09:00">
+                    <input type="time" name="time_in" step="1" required value="09:00:00">
                 </div>
                 <div class="form-group">
                     <label><i class="fa-solid fa-clock"></i> Time Out</label>
-                    <input type="time" name="time_out" required value="17:00">
+                    <input type="time" name="time_out" step="1" required value="17:00:00">
                 </div>
                 <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
                     <button type="button" class="btn" onclick="closeAddModal()" style="background: #6b7280; color: white;">
@@ -329,11 +479,11 @@
                 </div>
                 <div class="form-group">
                     <label><i class="fa-solid fa-clock"></i> Time In</label>
-                    <input type="time" name="time_in" id="edit_time_in" required>
+                    <input type="time" name="time_in" step="1" id="edit_time_in" required>
                 </div>
                 <div class="form-group">
                     <label><i class="fa-solid fa-clock"></i> Time Out</label>
-                    <input type="time" name="time_out" id="edit_time_out" required>
+                    <input type="time" name="time_out" step="1" id="edit_time_out" required>
                 </div>
                 <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
                     <button type="button" class="btn" onclick="closeEditModal()" style="background: #6b7280; color: white;">
