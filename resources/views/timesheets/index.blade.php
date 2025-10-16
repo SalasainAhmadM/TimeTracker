@@ -78,6 +78,15 @@
             background: #1d4ed8;
         }
 
+        .btn-purple {
+            background: #7c3aed;
+            color: white;
+        }
+
+        .btn-purple:hover {
+            background: #6d28d9;
+        }
+
         .btn-red {
             background: #dc2626;
             color: white;
@@ -111,6 +120,35 @@
             background: #d1fae5;
             border-color: #6ee7b7;
             color: #065f46;
+        }
+
+        .alert-warning {
+            background: #fef3c7;
+            border-color: #fcd34d;
+            color: #92400e;
+        }
+
+        .cutoff-info {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .cutoff-info-text {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .cutoff-info-text i {
+            font-size: 1.5rem;
         }
 
         .summary-cards {
@@ -189,35 +227,6 @@
 
         tr:hover {
             background: #f9fafb;
-        }
-
-        tfoot tr {
-            background: #f3f4f6;
-            font-weight: bold;
-        }
-
-        tfoot td {
-            font-size: 1.125rem;
-        }
-
-        .total-hours {
-            color: #2563eb;
-        }
-
-        input[type="date"],
-        input[type="time"],
-        input[type="text"] {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #d1d5db;
-            border-radius: 0.375rem;
-            font-size: 0.875rem;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: #2563eb;
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
 
         .hours-display {
@@ -303,19 +312,43 @@
         .variance-negative {
             color: #dc2626;
         }
+
+        input[type="date"],
+        input[type="time"],
+        input[type="text"] {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1><i class="fa-solid fa-clock"></i> Daily Timesheet</h1>
-            <div style="display: flex; gap: 0.5rem;">
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                 <button class="btn btn-blue" onclick="openAddModal()">
-                    <i class="fa-solid fa-plus"></i> Add New Entry
+                    <i class="fa-solid fa-plus"></i> Add Entry
+                </button>
+                <button class="btn btn-purple" onclick="processCutoff()">
+                    <i class="fa-solid fa-scissors"></i> Process Cut-Off
                 </button>
                 <a href="{{ route('timesheets.export') }}" class="btn btn-green">
-                    <i class="fa-solid fa-download"></i> Export CSV
+                    <i class="fa-solid fa-download"></i> Export
                 </a>
+                @if(isset($archivedPeriods) && count($archivedPeriods) > 0)
+                <button class="btn" onclick="viewArchives()" style="background: #6b7280; color: white;">
+                    <i class="fa-solid fa-archive"></i> Archives
+                </button>
+                @endif
             </div>
         </div>
 
@@ -325,8 +358,28 @@
             </div>
         @endif
 
+        @if(session('cutoff_summary'))
+            <div class="alert alert-success">
+                <i class="fa-solid fa-circle-check"></i> <strong>Cut-off processed successfully!</strong><br>
+                Period: {{ session('cutoff_summary')['date_range'] }}<br>
+                Total Hours: {{ session('cutoff_summary')['total_hours'] }} hrs | 
+                Net Balance: {{ session('cutoff_summary')['net_variance'] >= 0 ? '+' : '' }}{{ session('cutoff_summary')['net_variance'] }} hrs
+            </div>
+        @endif
+
+        <!-- Current Cut-off Period Info -->
+        <div class="cutoff-info">
+            <div class="cutoff-info-text">
+                <i class="fa-solid fa-calendar-days"></i>
+                <div>
+                    <div style="font-weight: 600; font-size: 1.125rem;">Current Period: {{ $currentPeriodLabel }}</div>
+                    <div style="font-size: 0.875rem; opacity: 0.9;">{{ $timesheets->count() }} working days recorded</div>
+                </div>
+            </div>
+        </div>
+
         <div class="alert">
-            <i class="fa-solid fa-info-circle"></i> <strong>Note:</strong> Lunch break (12:00 PM - 1:00 PM) is automatically excluded from calculations. Standard work hours: 8 hours/day
+            <i class="fa-solid fa-info-circle"></i> <strong>Note:</strong> Lunch break (12:00 PM - 1:00 PM) is automatically excluded. Standard: 8 hours/day
         </div>
 
         <!-- Summary Cards -->
@@ -364,9 +417,9 @@
                 </div>
                 <div class="summary-card-subtitle">
                     @if($netVariance > 0)
-                        <i class="fa-solid fa-check-circle"></i> You've rendered {{ number_format($netVariance, 2) }} extra hours!
+                        <i class="fa-solid fa-check-circle"></i> {{ number_format($netVariance, 2) }} extra hours!
                     @elseif($netVariance < 0)
-                        <i class="fa-solid fa-exclamation-triangle"></i> You need {{ number_format(abs($netVariance), 2) }} more hours
+                        <i class="fa-solid fa-exclamation-triangle"></i> Need {{ number_format(abs($netVariance), 2) }} more hours
                     @else
                         <i class="fa-solid fa-check-circle"></i> Perfect! On-time
                     @endif
@@ -429,7 +482,7 @@
                     @empty
                         <tr>
                             <td colspan="6" style="text-align: center; padding: 2rem; color: #6b7280;">
-                                <i class="fa-solid fa-inbox"></i> No entries yet. Click "Add New Entry" to get started.
+                                <i class="fa-solid fa-inbox"></i> No entries yet. Click "Add Entry" to get started.
                             </td>
                         </tr>
                     @endforelse
@@ -523,7 +576,6 @@
             document.getElementById('editModal').classList.remove('active');
         }
 
-        // SweetAlert2 Delete Confirmation
         function confirmDelete(id, date) {
             Swal.fire({
                 title: 'Delete Entry?',
@@ -534,17 +586,68 @@
                 cancelButtonColor: '#6b7280',
                 confirmButtonText: '<i class="fa-solid fa-trash"></i> Yes, delete it!',
                 cancelButtonText: '<i class="fa-solid fa-xmark"></i> Cancel',
-                reverseButtons: true,
-                customClass: {
-                    confirmButton: 'btn',
-                    cancelButton: 'btn'
-                }
+                reverseButtons: true
             }).then((result) => {
                 if (result.isConfirmed) {
-                    // Submit the form
                     document.getElementById('delete-form-' + id).submit();
                 }
             });
+        }
+
+        function processCutoff() {
+            // Get the data from the page
+            const periodLabel = "{{ $currentPeriodLabel }}";
+            const workingDays = {{ $timesheets->count() }};
+            const totalHours = {{ number_format($totalHours, 2) }};
+            const netVariance = {{ $netVariance }};
+            const netColor = netVariance >= 0 ? '#10b981' : '#ef4444';
+            const netSign = netVariance >= 0 ? '+' : '';
+            
+            Swal.fire({
+                title: '<i class="fa-solid fa-scissors"></i> Process Cut-Off Period?',
+                html: `
+                    <div style="text-align: left; padding: 1rem;">
+                        <p style="margin-bottom: 1rem;">You are about to process the current cut-off period:</p>
+                        <div style="background: #f3f4f6; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                            <strong>Period:</strong> ${periodLabel}<br>
+                            <strong>Working Days:</strong> ${workingDays}<br>
+                            <strong>Total Hours:</strong> ${totalHours} hrs<br>
+                            <strong>Net Balance:</strong> <span style="color: ${netColor};">${netSign}${Math.abs(netVariance).toFixed(2)} hrs</span>
+                        </div>
+                        <p style="color: #dc2626; margin-bottom: 0.5rem;"><strong>⚠️ Warning:</strong></p>
+                        <p style="color: #6b7280;">This will archive all entries in this period. They will be moved to the archives and cannot be edited.</p>
+                    </div>
+                `,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#7c3aed',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: '<i class="fa-solid fa-check"></i> Yes, process cut-off',
+                cancelButtonText: '<i class="fa-solid fa-xmark"></i> Cancel',
+                reverseButtons: true,
+                width: '600px'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Create and submit form
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '/timesheets/cutoff';
+                    
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+                    const csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = '_token';
+                    csrfInput.value = csrfToken;
+                    
+                    form.appendChild(csrfInput);
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            });
+        }
+
+        function viewArchives() {
+            window.location.href = '/timesheets/archives';
         }
 
         // Close modal when clicking outside
